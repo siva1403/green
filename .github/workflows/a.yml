@@ -1,0 +1,70 @@
+name: Build Docker image and push to Docker Hub
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate timestamp
+        id: timestamp
+        run: echo "TIMESTAMP=$(date +%s)" >> $GITHUB_OUTPUT
+
+      - name: Build project (if needed)
+        run: bash dep.sh
+
+      - name: Create folders
+        run: |
+          mkdir -p "GitHub Actions/Trivy"
+          mkdir -p "GitHub Actions/artifacts"
+
+      - name: Copy JAR
+        run: |
+          cp target/*.jar "GitHub Actions/artifacts/app-${{ steps.timestamp.outputs.TIMESTAMP }}.jar"
+
+      # ---------------- DOCKER LOGIN ----------------
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      # ---------------- BUILD IMAGE (TIMESTAMP TAG) ----------------
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/a:latest
+
+      # ---------------- TRIVY SCAN ----------------
+      - name: Run Trivy scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKER_HUB_USERNAME }}/a:latest
+          format: json
+          output: GitHub Actions/Trivy/scan-${{ steps.timestamp.outputs.TIMESTAMP }}.json
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH,MEDIUM,LOW
+
+      # ---------------- VERIFY ----------------
+      - name: Verify scan output
+        run: ls -l "GitHub Actions/Trivy/"
+
+      # ---------------- COMMIT RESULTS ----------------
+      - name: Commit results
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
+          git add "GitHub Actions/"
+          git commit -m "CI build + Trivy scan ${{ steps.timestamp.outputs.TIMESTAMP }}" || echo "No changes"
+          git push origin master
