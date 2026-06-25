@@ -60,11 +60,10 @@ jobs:
         run: ls -l "GitHub Actions/Trivy/"
 
       # ---------------- COMMIT RESULTS ----------------
-      - name: Commit results
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-
-          git add "GitHub Actions/"
-          git commit -m "CI build + Trivy scan ${{ steps.timestamp.outputs.TIMESTAMP }}" || echo "No changes"
-          git push origin master
+      #- name: Commit results
+      #  run: |
+      #    git config --global user.name "github-actions"
+       #   git config --global user.email "github-actions@github.com"
+        #  git add "GitHub Actions/"
+         # git commit -m "CI build + Trivy scan ${{ steps.timestamp.outputs.TIMESTAMP }}" || echo "No changes"
+          # git push origin master
